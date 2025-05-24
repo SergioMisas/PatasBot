@@ -68,8 +68,11 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update (Update): The incoming update from Telegram.
         context (ContextTypes.DEFAULT_TYPE): The context for the callback.
     """
+    rules_text = read_textfile("rules.txt")
+    if not rules_text.strip():
+        rules_text = "Aún no se han establecido reglas para este grupo."
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=read_textfile("rules.txt")
+        chat_id=update.effective_chat.id, text=rules_text
     )
 
 
