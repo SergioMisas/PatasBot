@@ -35,7 +35,7 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def change_rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Manda un mensaje con las nuevas reglas, o pon /cancel para cancelar"
+        "Responde a este mensaje con las nuevas reglas, o pon /cancel para cancelar"
     )
 
     return WAITING_FOR_RULES
