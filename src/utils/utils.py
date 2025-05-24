@@ -28,11 +28,11 @@ def read_textfile(relative_path: str) -> str:
     """
     path: str = get_path(relative_path)
 
-    with open(path, "r", encoding="utf-8") as file:
-        try:
+    try:
+        with open(path, "r", encoding="utf-8") as file:
             return file.read()
-        except (FileNotFoundError, IOError):
-            return ""
+    except OSError:
+        return ""
 
 
 def write_textfile(relative_path: str, new_text: str) -> bool:
@@ -49,9 +49,9 @@ def write_textfile(relative_path: str, new_text: str) -> bool:
     """
     path: str = get_path(relative_path)
 
-    with open(path, "w", encoding="utf-8") as file:
-        try:
+    try:
+        with open(path, "w", encoding="utf-8") as file:
             file.write(new_text)
-            return True
-        except (FileNotFoundError, IOError):
-            return False
+        return True
+    except OSError:
+        return False

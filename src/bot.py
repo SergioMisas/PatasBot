@@ -39,6 +39,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles the event when a new member joins the group.
+
+    Sends a welcome message to the new member and shows them the rules of the group.
+
+    Args:
+        update (Update): The incoming update from Telegram.
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+    """
+    for new_member in update.message.new_chat_members:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"¡Hola {new_member.username or new_member.first_name}! Bienvenide al grupo. ",
+        )
+
+    await rules(update, context)
+
+
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handles the /rules command.
@@ -160,6 +179,9 @@ if __name__ == "__main__":
     application = ApplicationBuilder().token(get_token()).build()
 
     start_handler = CommandHandler("start", start)
+    new_member_handler = MessageHandler(
+        filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member
+    )
     rules_handler = CommandHandler("rules", rules)
 
     change_rules_conv_handler = ConversationHandler(
@@ -174,6 +196,7 @@ if __name__ == "__main__":
     )
 
     application.add_handler(start_handler)
+    application.add_handler(new_member_handler)
     application.add_handler(rules_handler)
     application.add_handler(change_rules_conv_handler)
 
