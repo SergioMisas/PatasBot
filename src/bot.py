@@ -17,7 +17,7 @@ from typing import Optional
 WAITING_FOR_RULES = 1
 
 # Constants
-POLL_DURATION = 15  # Default: 86400, 24 hours in seconds
+POLL_DURATION = 86400  # Default: 86400, 24 hours in seconds
 
 
 # Load environment variables
@@ -113,11 +113,11 @@ async def change_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     """
     admin_id = get_admin_id()
     if update.effective_user.id != admin_id:
-        await update.message.reply_text("No tienes permiso para cambiar las reglas")
+        await update.message.reply_text("No tienes permiso para cambiar las reglas.")
         return ConversationHandler.END
 
     await update.message.reply_text(
-        "Responde a este mensaje con las nuevas reglas, o pon /cancel para cancelar"
+        "Responde a este mensaje con las nuevas reglas, o pon /cancel para cancelar."
     )
 
     return WAITING_FOR_RULES
@@ -140,9 +140,9 @@ async def receive_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     success_write: bool = write_textfile("rules.txt", update.message.text)
 
     if success_write:
-        await update.message.reply_text("Reglas guardadas correctamente")
+        await update.message.reply_text("Reglas guardadas correctamente.")
     else:
-        await update.message.reply_text("Ha ocurrido un error guardando las reglas")
+        await update.message.reply_text("Ha ocurrido un error guardando las reglas.")
 
     return ConversationHandler.END
 
@@ -160,7 +160,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Returns:
         int: ConversationHandler.END to indicate the end of the conversation.
     """
-    await update.message.reply_text("Operación cancelada")
+    await update.message.reply_text("Operación cancelada.")
 
     return ConversationHandler.END
 
@@ -181,7 +181,7 @@ async def create_invite_poll(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """
     if not await has_privileges_for_invite(update, context):
         return
-    
+
     if len(context.args) != 1 or not context.args[0].startswith("@"):
         await update.message.reply_text(
             "Usuario no válido. Por favor, menciona a un usuario con @."
@@ -213,7 +213,7 @@ async def create_invite_poll(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "message_id": poll.message_id,
             "username": username,
         },
-        name=f"close_poll_{poll.message_id}",
+        name=f"close_poll_{update.effective_chat.id}_{username}",
     )
 
 
@@ -284,6 +284,40 @@ async def close_poll_callback(context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def cancel_invite_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Cancels the invite poll for a username if it is still active.
+
+    Args:
+        update (Update): The incoming update from Telegram.
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+    """
+    if len(context.args) != 1 or not context.args[0].startswith("@"):
+        await update.message.reply_text(
+            "Usuario no válido. Por favor, menciona a un usuario con @."
+        )
+        return
+
+    username = context.args[0]
+    job_name = f"close_poll_{update.effective_chat.id}_{username}"
+
+    jobs = context.job_queue.get_jobs_by_name(job_name)
+    if not jobs:
+        await update.message.reply_text(
+            f"No hay una encuesta activa para invitar a {username}."
+        )
+        return
+
+    for job in jobs:
+        await context.bot.unpin_chat_message(
+            chat_id=update.effective_chat.id,
+            message_id=job.data["message_id"],
+        )
+        job.schedule_removal()
+
+    await update.message.reply_text(f"Encuesta para invitar a {username} cancelada.")
+
+
 """
 Utility Functions
 """
@@ -336,7 +370,12 @@ if __name__ == "__main__":
         filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member
     )
     rules_handler = CommandHandler("rules", rules)
-    invite_handler = CommandHandler("invite", create_invite_poll)
+    invite_handler = CommandHandler(
+        "invite", create_invite_poll, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP
+    )
+    cancel_invite_handler = CommandHandler(
+        "cancelinvite", cancel_invite_poll, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP
+    )
 
     change_rules_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("changerules", change_rules)],
@@ -353,6 +392,7 @@ if __name__ == "__main__":
     application.add_handler(new_member_handler)
     application.add_handler(rules_handler)
     application.add_handler(invite_handler)
+    application.add_handler(cancel_invite_handler)
     application.add_handler(change_rules_conv_handler)
 
     application.run_polling()
