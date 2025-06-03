@@ -339,7 +339,7 @@ if __name__ == "__main__":
     invite_handler = CommandHandler("invite", create_invite_poll)
 
     change_rules_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("change_rules", change_rules)],
+        entry_points=[CommandHandler("changerules", change_rules)],
         states={
             WAITING_FOR_RULES: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_rules)
