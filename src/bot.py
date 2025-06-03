@@ -13,13 +13,25 @@ from telegram.ext import (
 )
 from typing import Optional
 
+# Conversation states
+WAITING_FOR_RULES = 1
+
+# Constants
+POLL_DURATION = 15  # Default: 86400, 24 hours in seconds
+
+
+# Load environment variables
 load_dotenv()
 
+# Configure logging
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-WAITING_FOR_RULES = 1
+
+"""
+Start
+"""
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -35,8 +47,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="¡Hola! Soy PatasBot. Estoy aquí para ayudarte con las reglas del grupo, "
-        "crear encuestas para invitar a otras personas y más.",
+        "crear encuestas para invitar a otras personas y más. Escribe /patas_help "
+        "para ver los comandos disponibles.",
     )
+
+
+"""
+New Member
+"""
 
 
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -58,6 +76,11 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await rules(update, context)
 
 
+"""
+Rules
+"""
+
+
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handles the /rules command.
@@ -71,9 +94,7 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rules_text = read_textfile("rules.txt")
     if not rules_text.strip():
         rules_text = "Aún no se han establecido reglas para este grupo."
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=rules_text
-    )
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=rules_text)
 
 
 async def change_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -144,6 +165,130 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+"""
+Invite Poll
+"""
+
+
+async def create_invite_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Creates a poll to invite a user to the group.
+    The user to be invited must be mentioned with an @username.
+
+    Args:
+        update (Update): The incoming update from Telegram.
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+    """
+    if not await has_privileges_for_invite(update, context):
+        return
+    
+    if len(context.args) != 1 or not context.args[0].startswith("@"):
+        await update.message.reply_text(
+            "Usuario no válido. Por favor, menciona a un usuario con @."
+        )
+        return
+
+    username = context.args[0]
+    question = f"Meter a {username}"
+    options = ["Sí", "No sé si sí", "No sé si no", "No"]
+
+    poll = await context.bot.send_poll(
+        chat_id=update.effective_chat.id,
+        question=question,
+        options=options,
+        is_anonymous=True,
+        allows_multiple_answers=False,
+    )
+
+    await context.bot.pin_chat_message(
+        chat_id=update.effective_chat.id,
+        message_id=poll.message_id,
+    )
+
+    context.job_queue.run_once(
+        callback=close_poll_callback,
+        when=POLL_DURATION,
+        data={
+            "chat_id": update.effective_chat.id,
+            "message_id": poll.message_id,
+            "username": username,
+        },
+        name=f"close_poll_{poll.message_id}",
+    )
+
+
+async def has_privileges_for_invite(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> bool:
+    """
+    Checks if the bot has privileges to create an invite poll in the current group.
+
+    Args:
+        update (Update): The incoming update from Telegram.
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+
+    Returns:
+        bool: True if the bot has the necessary privileges, False otherwise.
+    """
+    bot_member = await context.bot.get_chat_member(
+        chat_id=update.effective_chat.id, user_id=context.bot.id
+    )
+
+    if (
+        bot_member.status != "administrator"
+        or not getattr(bot_member, "can_pin_messages", False)
+        or not getattr(bot_member, "can_invite_users", False)
+    ):
+        await update.message.reply_text(
+            "No tengo permisos para crear encuestas de invitación en este grupo. "
+            "Asegúrate de que soy administrador y tengo los permisos necesarios:\n"
+            "- Fijar mensajes\n"
+            "- Invitar usuarios"
+        )
+        return False
+
+    return True
+
+
+async def close_poll_callback(context: ContextTypes.DEFAULT_TYPE):
+    """
+    Callback function to close the poll after 24 hours.
+    Retrieves the poll data from the job context and stops the poll.
+
+    It also decides whether to invite the user based on the poll results.
+
+    Args:
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+    """
+    job_data = context.job.data
+    chat_id = job_data["chat_id"]
+    message_id = job_data["message_id"]
+    username = job_data["username"]
+
+    stopped_poll = await context.bot.stop_poll(
+        chat_id=chat_id,
+        message_id=message_id,
+    )
+
+    await context.bot.unpin_chat_message(
+        chat_id=chat_id,
+        message_id=message_id,
+    )
+
+    results = [(option.text, option.voter_count) for option in stopped_poll.options]
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"Resultados de la encuesta para invitar a {username}:\n"
+        + "\n".join([f"{text}: {count}" for text, count in results]),
+    )
+
+
+"""
+Utility Functions
+"""
+
+
 def get_token() -> str:
     """
     Retrieves the bot token from environment variables.
@@ -178,6 +323,11 @@ def get_admin_id() -> int:
     return int(admin_id)
 
 
+"""
+Main Function
+"""
+
+
 if __name__ == "__main__":
     application = ApplicationBuilder().token(get_token()).build()
 
@@ -186,6 +336,7 @@ if __name__ == "__main__":
         filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member
     )
     rules_handler = CommandHandler("rules", rules)
+    invite_handler = CommandHandler("invite", create_invite_poll)
 
     change_rules_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("change_rules", change_rules)],
@@ -201,6 +352,7 @@ if __name__ == "__main__":
     application.add_handler(start_handler)
     application.add_handler(new_member_handler)
     application.add_handler(rules_handler)
+    application.add_handler(invite_handler)
     application.add_handler(change_rules_conv_handler)
 
     application.run_polling()
