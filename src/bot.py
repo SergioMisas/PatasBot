@@ -255,7 +255,7 @@ async def close_poll_callback(context: ContextTypes.DEFAULT_TYPE):
     Callback function to close the poll after 24 hours.
     Retrieves the poll data from the job context and stops the poll.
 
-    It also decides whether to invite the user based on the poll results.
+    It also decides whether to invite the user based on the poll results (WIP).
 
     Args:
         context (ContextTypes.DEFAULT_TYPE): The context for the callback.
