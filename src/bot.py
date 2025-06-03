@@ -362,37 +362,53 @@ Main Function
 """
 
 
+def register_handlers(application: ApplicationBuilder):
+    """
+    Registers the command and message handlers for the bot.
+
+    Args:
+        application (ApplicationBuilder): The application instance to register handlers with.
+    """
+    # Command Handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("rules", rules))
+    application.add_handler(
+        CommandHandler(
+            "invite",
+            create_invite_poll,
+            filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP,
+        )
+    )
+    application.add_handler(
+        CommandHandler(
+            "cancelinvite",
+            cancel_invite_poll,
+            filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP,
+        )
+    )
+
+    # Message Handlers
+    application.add_handler(
+        MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member)
+    )
+
+    # Conversation Handlers
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[CommandHandler("changerules", change_rules)],
+            states={
+                WAITING_FOR_RULES: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, receive_rules)
+                ]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+            per_user=True,
+        )
+    )
+
+
 if __name__ == "__main__":
     application = ApplicationBuilder().token(get_token()).build()
-
-    start_handler = CommandHandler("start", start)
-    new_member_handler = MessageHandler(
-        filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member
-    )
-    rules_handler = CommandHandler("rules", rules)
-    invite_handler = CommandHandler(
-        "invite", create_invite_poll, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP
-    )
-    cancel_invite_handler = CommandHandler(
-        "cancelinvite", cancel_invite_poll, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP
-    )
-
-    change_rules_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("changerules", change_rules)],
-        states={
-            WAITING_FOR_RULES: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_rules)
-            ]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-        per_user=True,
-    )
-
-    application.add_handler(start_handler)
-    application.add_handler(new_member_handler)
-    application.add_handler(rules_handler)
-    application.add_handler(invite_handler)
-    application.add_handler(cancel_invite_handler)
-    application.add_handler(change_rules_conv_handler)
+    register_handlers(application)
 
     application.run_polling()
