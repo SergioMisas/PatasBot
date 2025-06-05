@@ -1,6 +1,5 @@
 import logging
-import os
-from utils.utils import read_textfile, write_textfile
+from utils.utils import read_textfile, write_textfile, get_token, get_admin_id
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
@@ -11,7 +10,6 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from typing import Optional
 
 # Conversation states
 WAITING_FOR_RULES = 1
@@ -322,45 +320,6 @@ async def cancel_invite_poll(update: Update, context: ContextTypes.DEFAULT_TYPE)
         job.schedule_removal()
 
     await update.message.reply_text(f"Encuesta para invitar a {username} cancelada.")
-
-
-"""
-Utility Functions
-"""
-
-
-def get_token() -> str:
-    """
-    Retrieves the bot token from environment variables.
-
-    Raises:
-        ValueError: If the TOKEN environment variable is not set.
-
-    Returns:
-        str: The bot token.
-    """
-    token: Optional[str] = os.getenv("TOKEN")
-    if not token:
-        logging.error("No TOKEN found in environment variables.")
-        raise ValueError("TOKEN is required but not set in environment variables.")
-    return token
-
-
-def get_admin_id() -> int:
-    """
-    Retrieves the admin ID from environment variables.
-
-    Raises:
-        ValueError: If the ADMIN_ID environment variable is not set.
-
-    Returns:
-        int: The admin ID.
-    """
-    admin_id: Optional[str] = os.getenv("ADMIN_ID")
-    if not admin_id:
-        logging.error("No ADMIN_ID found in environment variables.")
-        raise ValueError("ADMIN_ID is required but not set in environment variables.")
-    return int(admin_id)
 
 
 """

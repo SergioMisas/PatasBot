@@ -1,4 +1,6 @@
 import os
+import logging
+from typing import Optional
 
 
 def get_path(relative_path: str) -> str:
@@ -55,3 +57,37 @@ def write_textfile(relative_path: str, new_text: str) -> bool:
         return True
     except OSError:
         return False
+
+
+def get_token() -> str:
+    """
+    Retrieves the bot token from environment variables.
+
+    Raises:
+        ValueError: If the TOKEN environment variable is not set.
+
+    Returns:
+        str: The bot token.
+    """
+    token: Optional[str] = os.getenv("TOKEN")
+    if not token:
+        logging.error("No TOKEN found in environment variables.")
+        raise ValueError("TOKEN is required but not set in environment variables.")
+    return token
+
+
+def get_admin_id() -> int:
+    """
+    Retrieves the admin ID from environment variables.
+
+    Raises:
+        ValueError: If the ADMIN_ID environment variable is not set.
+
+    Returns:
+        int: The admin ID.
+    """
+    admin_id: Optional[str] = os.getenv("ADMIN_ID")
+    if not admin_id:
+        logging.error("No ADMIN_ID found in environment variables.")
+        raise ValueError("ADMIN_ID is required but not set in environment variables.")
+    return int(admin_id)
