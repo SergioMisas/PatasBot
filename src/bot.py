@@ -1,7 +1,7 @@
 import logging
 from utils.utils import read_textfile, write_textfile, get_token, get_admin_id
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -15,7 +15,7 @@ from telegram.ext import (
 WAITING_FOR_RULES = 1
 
 # Constants
-POLL_DURATION = 86400  # Default: 86400, 24 hours in seconds
+POLL_DURATION = 20  # 86400  # Default: 86400, 24 hours in seconds
 
 
 # Load environment variables
@@ -279,7 +279,23 @@ async def close_poll_callback(context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=chat_id,
         text=f"Resultados de la encuesta para invitar a {username}:\n"
-        + "\n".join([f"{text}: {count}" for text, count in results]),
+        + "\n".join([f"{text}: {count}" for text, count in results])
+        + f"\n\nEsperando aprobación del administradore",
+    )
+
+    await context.bot.send_message(
+        chat_id=get_admin_id(),
+        text=f"Resultados de la encuesta para invitar a {username}:\n"
+        + "\n".join([f"{text}: {count}" for text, count in results])
+        + f"\n\nSe invita a {username}?",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("Invitar", callback_data="invite"),
+                    InlineKeyboardButton("Rechazar", callback_data="reject"),
+                ]
+            ]
+        ),
     )
 
 
