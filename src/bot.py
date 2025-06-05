@@ -15,7 +15,7 @@ from telegram.ext import (
 WAITING_FOR_RULES = 1
 
 # Constants
-POLL_DURATION = 20  # 86400  # Default: 86400, 24 hours in seconds
+POLL_DURATION = 86400  # Default: 86400, 24 hours in seconds
 
 
 # Load environment variables
@@ -47,6 +47,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text="¡Hola! Soy PatasBot. Estoy aquí para ayudarte con las reglas del grupo, "
         "crear encuestas para invitar a otras personas y más. Escribe /patas_help "
         "para ver los comandos disponibles.",
+    )
+
+
+"""
+Help
+"""
+
+
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Shows all available bot commands.
+
+    Replies to the user who sent the message with the list of commands.
+
+    Args:
+        update (Update): The incoming update from Telegram.
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+    """
+    help_text = (
+        "Comandos disponibles:\n\n"
+        "General:\n"
+        "/start - Inicia el bot y muestra un mensaje de bienvenida\n"
+        "/help - Muestra este mensaje de ayuda\n\n"
+        "Reglas:\n"
+        "/rules - Muestra las reglas del grupo\n"
+        "/changerules - Cambia las reglas del grupo (solo admin)\n\n"
+        "Invitaciones:\n"
+        "/invite @usuario - Crea una encuesta para invitar a un usuario\n"
+        "/cancelinvite @usuario - Cancela la encuesta de invitación (solo quien la creó)\n"
+    )
+    await update.message.reply_text(
+        help_text, reply_to_message_id=update.message.message_id
     )
 
 
@@ -280,14 +312,14 @@ async def close_poll_callback(context: ContextTypes.DEFAULT_TYPE):
         chat_id=chat_id,
         text=f"Resultados de la encuesta para invitar a {username}:\n"
         + "\n".join([f"{text}: {count}" for text, count in results])
-        + f"\n\nEsperando aprobación del administradore",
+        + "\n\nEsperando aprobación de le administradore",
     )
 
     await context.bot.send_message(
         chat_id=get_admin_id(),
         text=f"Resultados de la encuesta para invitar a {username}:\n"
         + "\n".join([f"{text}: {count}" for text, count in results])
-        + f"\n\nSe invita a {username}?",
+        + f"\n\n¿Quieres invitar a {username} a Patas?",
         reply_markup=InlineKeyboardMarkup(
             [
                 [
@@ -352,6 +384,7 @@ def register_handlers(application: ApplicationBuilder):
     """
     # Command Handlers
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help))
     application.add_handler(CommandHandler("rules", rules))
     application.add_handler(
         CommandHandler(
