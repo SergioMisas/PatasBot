@@ -212,6 +212,7 @@ async def create_invite_poll(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "chat_id": update.effective_chat.id,
             "message_id": poll.message_id,
             "username": username,
+            "requested_by": update.effective_user.id,
         },
         name=f"close_poll_{update.effective_chat.id}_{username}",
     )
@@ -309,6 +310,11 @@ async def cancel_invite_poll(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     for job in jobs:
+        if job.data["requested_by"] != update.effective_user.id:
+            await update.message.reply_text(
+                "Solo el usuario que creó la encuesta puede cancelarla."
+            )
+            return
         await context.bot.unpin_chat_message(
             chat_id=update.effective_chat.id,
             message_id=job.data["message_id"],
