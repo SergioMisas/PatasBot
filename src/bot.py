@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from utils.utils import read_textfile, write_textfile, get_token, get_admin_id
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -9,6 +10,7 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     filters,
+    CallbackQueryHandler,
 )
 
 # Conversation states
@@ -16,7 +18,7 @@ WAITING_FOR_RULES = 1
 
 # Constants
 POLL_DURATION = 86400  # Default: 86400, 24 hours in seconds
-
+LINK_EXPIRATION_MINUTES = 1440  # Default: 1440 minutes = 1 day
 
 # Load environment variables
 load_dotenv()
@@ -295,6 +297,7 @@ async def close_poll_callback(context: ContextTypes.DEFAULT_TYPE):
     chat_id = job_data["chat_id"]
     message_id = job_data["message_id"]
     username = job_data["username"]
+    requested_by = job_data["requested_by"]
 
     stopped_poll = await context.bot.stop_poll(
         chat_id=chat_id,
@@ -323,11 +326,59 @@ async def close_poll_callback(context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Invitar", callback_data="invite"),
-                    InlineKeyboardButton("Rechazar", callback_data="reject"),
+                    InlineKeyboardButton(
+                        "Invitar",
+                        callback_data=f"invite {username} {chat_id}",
+                    ),
+                    InlineKeyboardButton(
+                        "Rechazar",
+                        callback_data=f"reject {username} {chat_id}",
+                    ),
                 ]
             ]
         ),
+    )
+
+
+async def invite_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Callback function to invite a user to a group chat, executes when admin approves.
+
+    Args:
+        update (Update): The incoming update from Telegram.
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+    """
+    callback_data = update.callback_query.data
+    _, username, group_chat_id = callback_data.split()
+
+    invite_link = await context.bot.create_chat_invite_link(
+        chat_id=group_chat_id,
+        member_limit=1,
+        name=username,
+        expire_date=datetime.now() + timedelta(minutes=LINK_EXPIRATION_MINUTES),
+    )
+
+    await context.bot.send_message(
+        chat_id=group_chat_id,
+        text=f"Han aceptado a {username}, invitale con este link de un solo uso (En caso de que se invite a otra persona ambos sereis expulsades del grupo):\n."
+        + f"{invite_link.invite_link}",
+    )
+
+
+async def reject_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Callback function to send a message to the group after the admin rejects the invite.
+
+    Args:
+        update (Update): The incoming update from Telegram.
+        context (ContextTypes.DEFAULT_TYPE): The context for the callback.
+    """
+    callback_data = update.callback_query.data
+    _, username, group_chat_id = callback_data.split()
+
+    await context.bot.send_message(
+        chat_id=group_chat_id,
+        text=f"La propuesta de invitación a {username} ha sido rechazada.",
     )
 
 
@@ -419,6 +470,10 @@ def register_handlers(application: ApplicationBuilder):
             per_user=True,
         )
     )
+
+    # Callback Query Handlers
+    application.add_handler(CallbackQueryHandler(invite_callback, pattern="^invite"))
+    application.add_handler(CallbackQueryHandler(reject_callback, pattern="^reject"))
 
 
 if __name__ == "__main__":
